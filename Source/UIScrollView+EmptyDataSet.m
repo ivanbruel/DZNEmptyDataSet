@@ -90,7 +90,8 @@ static char const * const kEmptyDataSetView =       "emptyDataSetView";
     if (!view)
     {
         view = [DZNEmptyDataSetView new];
-        view.autoresizingMask = UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight;
+        //view.autoresizingMask = UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight;
+        view.translatesAutoresizingMaskIntoConstraints = NO;
         view.hidden = YES;
         
         view.tapGesture = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(dzn_didTapContentView:)];
@@ -456,6 +457,14 @@ static char const * const kEmptyDataSetView =       "emptyDataSetView";
             else {
                 [self addSubview:view];
             }
+            NSLayoutConstraint *centerXConstraint = [self equallyRelatedConstraintWithView:view attribute:NSLayoutAttributeCenterX];
+            NSLayoutConstraint *centerYConstraint = [self equallyRelatedConstraintWithView:view attribute:NSLayoutAttributeCenterY];
+            NSLayoutConstraint *heightConstraint = [self equallyRelatedConstraintWithView:view attribute:NSLayoutAttributeHeight];
+
+            [self addConstraint:centerXConstraint];
+            [self addConstraint:centerYConstraint];
+            [self addConstraint:heightConstraint];
+            [self addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|[view]|" options:0 metrics:nil views:@{@"view": view}]];
         }
         
         // Removing view resetting the view and its constraints it very important to guarantee a good state
@@ -736,6 +745,7 @@ Class dzn_baseClassToSwizzleForTarget(id target)
 - (void)didMoveToSuperview
 {
     self.frame = self.superview.bounds;
+    [self.superview bringSubviewToFront:self];
     
     void(^fadeInBlock)(void) = ^{_contentView.alpha = 1.0;};
     
@@ -921,13 +931,18 @@ Class dzn_baseClassToSwizzleForTarget(id target)
     // The content view must alway be centered to its superview
     NSLayoutConstraint *centerXConstraint = [self equallyRelatedConstraintWithView:self.contentView attribute:NSLayoutAttributeCenterX];
     NSLayoutConstraint *centerYConstraint = [self equallyRelatedConstraintWithView:self.contentView attribute:NSLayoutAttributeCenterY];
+    NSLayoutConstraint *heightConstraint = [self equallyRelatedConstraintWithView:self.contentView attribute:NSLayoutAttributeHeight];
     
     [self addConstraint:centerXConstraint];
     [self addConstraint:centerYConstraint];
+    [self addConstraint:heightConstraint];
     [self addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|[contentView]|" options:0 metrics:nil views:@{@"contentView": self.contentView}]];
-    NSString *vertical = [NSString stringWithFormat:@"V:|-%@-[contentView]|", @(self.verticalOffset)];
-    [self addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:vertical options:0 metrics:nil views:@{@"contentView": self.contentView}]];
-
+    
+    // When a custom offset is available, we adjust the vertical constraints' constants
+    if (self.verticalOffset != 0 && self.constraints.count > 0) {
+        centerYConstraint.constant = self.verticalOffset;
+    }
+    
     // If applicable, set the custom view's constraints
     if (_customView) {
         [self.contentView addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|[customView]|" options:0 metrics:nil views:@{@"customView":_customView}]];
